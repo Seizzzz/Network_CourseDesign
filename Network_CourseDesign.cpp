@@ -9,8 +9,9 @@ typedef int int32_t;
 typedef unsigned char uint8_t;
 
 const int BUF_SIZE = 512;
+char addrDNS[] = "114.114.114.114";
 
-struct DNS_Header //DNS消息头部结构
+struct dnsHeader //DNS消息头部结构
 {
     uint16_t ID;
     uint16_t TAG;
@@ -28,57 +29,17 @@ struct DNS_Header //DNS消息头部结构
     uint16_t ARCOUNT;
 };
 
-struct DNS_Quest
+void printBuf(char* buf, const int conSize)
 {
-    uint16_t QTYPE;
-    uint16_t QCLASS;
-};
+    //报文原始内容 -dd
+    for (int i = 0; i < conSize; ++i) printf("%2.2x ", (unsigned char)buf[i]);
+    printf("\n");
 
-int main(int argc, char* argv[])
-{
-    char buf[BUF_SIZE];
-    memset(buf, 0, BUF_SIZE);
-
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(1, 1), &wsaData) != 0) {
-        printf("WSAStartup Failed!\n");
-        return -1;
-    }
-    ///////////////////////////////////////////////
-
-    SOCKET sockSrv = socket(AF_INET, SOCK_DGRAM, 0);
-    SOCKET sockCli = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sockSrv < 0 || sockCli < 0) {
-        printf("Creating Sock Failed!\n");
-        return -1;
-    }
-
-    SOCKADDR_IN addrSrv;
-    const int addrSrvSize = sizeof(addrSrv);
-    addrSrv.sin_addr.s_addr = INADDR_ANY;
-    addrSrv.sin_family = AF_INET;
-    addrSrv.sin_port = htons(53);
-    bind(sockSrv, (SOCKADDR*)&addrSrv, sizeof(SOCKADDR));
-    ///////////////////////////////////////////////
-    
-    DNS_Header* ptrHeader = (DNS_Header*)buf;
-    DNS_Quest* ptrQuest = (DNS_Quest*)(buf + sizeof(DNS_Header));
-
-    while (true)
+    //报文翻译内容 -d
+    dnsHeader* ptr = (dnsHeader*)buf;
+    if (ptr->ANCOUNT == 0) //请求报文
     {
-        //接收报文
-        int recvSize;
-        recvSize = recvfrom(sockSrv, buf, BUF_SIZE, 0, (sockaddr*)&addrSrv, &addrSrvSize);
-        if (sockSrv != INVALID_SOCKET) {
-            printf("收到请求\n");
-        }
-
-        //报文内容 -dd
-        for (int i = 0; i < recvSize; ++i) printf("%2.2x ", buf[i]);
-        printf("\n");
-
-        //报文地址内容 -d
-        char* ptr = (char*)(buf + sizeof(DNS_Header));
+        char* ptr = buf + sizeof(dnsHeader);
         do
         {
             int cnt = *ptr;
@@ -89,14 +50,96 @@ int main(int argc, char* argv[])
 
         } while (true);
         printf("\n");
-
-        //转发
-
     }
 
+    return;
+}
+
+int requestDNS(char* buf, int recvSize)
+{
+    SOCKET sockCli = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockCli < 0) {
+        printf("Creating Sock(requestDNS) Failed!\n");
+        exit(-1);
+    }
+
+    SOCKADDR_IN addrCli;
+    int addrCliSize = sizeof(addrCli);
+    addrCli.sin_addr.s_addr = inet_addr(addrDNS);
+    addrCli.sin_family = AF_INET;
+    addrCli.sin_port = htons(53);
+    bind(sockCli, (SOCKADDR*)&addrCli, sizeof(SOCKADDR));
+
+    //转发请求报文
+    printf("Relay Request to %s:%d\n", inet_ntoa(addrCli.sin_addr), ntohs(addrCli.sin_port));
+    sendto(sockCli, buf, recvSize, 0, (SOCKADDR*)&addrCli, sizeof(addrCli));
+
+    //接收响应报文
+    recvSize = recvfrom(sockCli, buf, BUF_SIZE, 0, (SOCKADDR*)&addrCli, &addrCliSize);
+
+    if (sockCli != INVALID_SOCKET) {
+        printf("Recv Response from %s:%d\n", inet_ntoa(addrCli.sin_addr), ntohs(addrCli.sin_port));
+    }
+    printBuf(buf, recvSize);
+
+    closesocket(sockCli);
+    return recvSize;
+}
+
+void getRequest(char* buf)
+{
+    int recvSize;
+
+    SOCKET sockSrv = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockSrv < 0) {
+        printf("Creating Socket(getRequest) Failed!\n");
+        exit(-1);
+    }
+
+    SOCKADDR_IN addrSrv;
+    int addrSrvSize = sizeof(addrSrv);
+    addrSrv.sin_addr.s_addr = INADDR_ANY;
+    addrSrv.sin_family = AF_INET;
+    addrSrv.sin_port = htons(53);
+    bind(sockSrv, (SOCKADDR*)&addrSrv, sizeof(SOCKADDR));
+
+    //接收请求报文
+    recvSize = recvfrom(sockSrv, buf, BUF_SIZE, 0, (SOCKADDR*)&addrSrv, &addrSrvSize);
+    if (sockSrv != INVALID_SOCKET) {
+        printf("Recv Request from %s:%d\n", inet_ntoa(addrSrv.sin_addr), ntohs(addrSrv.sin_port));
+    }
+    printBuf(buf, recvSize);
+
+    //查询
+    recvSize = requestDNS(buf, recvSize);
+
+    //回复响应报文
+    printf("Relay Response to %s:%d\n", inet_ntoa(addrSrv.sin_addr), ntohs(addrSrv.sin_port));
+    sendto(sockSrv, buf, recvSize, 0, (SOCKADDR*)&addrSrv, sizeof(addrSrv));
+
+    closesocket(sockSrv);
+    return;
+}
+
+int main(int argc, char* argv[])
+{
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(1, 1), &wsaData) != 0) {
+        printf("WSAStartup Failed!\n");
+        return -1;
+    }
 
     ///////////////////////////////////////////////
 
-    closesocket(sockSrv);
+    char buf[BUF_SIZE];
+    memset(buf, 0, BUF_SIZE);
+
+    while (true)
+    {
+        getRequest(buf);
+    }
+
+    ///////////////////////////////////////////////
+
     WSACleanup();
 }
