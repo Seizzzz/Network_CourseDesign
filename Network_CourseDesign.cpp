@@ -9,7 +9,9 @@ typedef int int32_t;
 typedef unsigned char uint8_t;
 
 const int BUF_SIZE = 512;
-char addrDNS[] = "114.114.114.114";
+char addrDNS[20] = "114.114.114.114";
+char addrFile[50];
+int infoLevel = 0;
 
 struct dnsHeader //DNS消息头部结构
 {
@@ -31,13 +33,14 @@ struct dnsHeader //DNS消息头部结构
 
 void printBuf(char* buf, const int conSize)
 {
-    //报文原始内容 -dd
-    for (int i = 0; i < conSize; ++i) printf("%2.2x ", (unsigned char)buf[i]);
-    printf("\n");
+    if (infoLevel >= 2) //报文原始内容 -dd
+    {
+        for (int i = 0; i < conSize; ++i) printf("%2.2x ", (unsigned char)buf[i]);
+        printf("\n");
+    }
 
     //报文翻译内容 -d
-    dnsHeader* ptr = (dnsHeader*)buf;
-    if (ptr->ANCOUNT == 0) //请求报文
+    if (infoLevel >= 1)
     {
         char* ptr = buf + sizeof(dnsHeader);
         do
@@ -123,6 +126,29 @@ void getRequest(char* buf)
 
 int main(int argc, char* argv[])
 {
+    if (argc > 1)
+    {
+        strcpy(addrFile, argv[0]);
+        infoLevel = 0;
+        for (int i = 1; i < argc; ++i)
+        {
+            if (argv[i][0] == '-')
+            {
+                if (strcmp(argv[i], "-d") == 0) infoLevel = 1;
+                else if (strcmp(argv[i], "-dd") == 0) infoLevel = 2;
+                else
+                {
+                    printf("Unknown Command!\n");
+                    exit(-1);
+                }
+            }
+            else if (isdigit(argv[i][0])) strcpy(addrDNS, argv[i]);
+            else if (isalpha(argv[i][0])) strcpy(addrFile, argv[i]);
+        }
+    }
+
+    ///////////////////////////////////////////////
+
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(1, 1), &wsaData) != 0) {
         printf("WSAStartup Failed!\n");
