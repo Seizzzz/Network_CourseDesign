@@ -2,10 +2,12 @@
 #include <WinSock2.h>
 #include <ws2tcpip.h> 
 #pragma comment(lib, "ws2_32.lib")
+#pragma pack(1)
 
 typedef unsigned short uint16_t;
 typedef short int16_t;
 typedef int int32_t;
+typedef unsigned int uint32_t;
 typedef unsigned char uint8_t;
 
 const int BUF_SIZE = 512;
@@ -31,11 +33,75 @@ struct dnsHeader //DNS消息头部结构
     uint16_t ARCOUNT;
 };
 
+struct dnsRR
+{
+    uint16_t NAME;
+    uint16_t TYPE;
+    uint16_t CLASS;
+    uint32_t TTL;
+    uint16_t RDLENGTH;
+    uint32_t RDATA; //后可变长
+};
+
+//0x8183 No such name
+//0x8180 No error
+/*
+    const char* a[] = { "china","germany","america" };
+    construct(0x0, 0, a, 3);
+*/
+
+int isIpv4(const char* a)
+{
+    if (strchr(a, ':') == NULL) return 1;
+    return 0;
+}
+
+int construct(char* buf, int size, const char* a[], uint16_t num)
+{
+    dnsHeader* hdr = (dnsHeader*)buf;
+    if (num == 0 || a[0] == "0.0.0.0") { //拦截
+        hdr->TAG = htons(0x8183);
+        return size;
+    }
+    
+    dnsRR* rr = (dnsRR*)(buf + size);
+    hdr->ANCOUNT = htons(num);
+    hdr->TAG = htons(0x8180);
+    for (int i = 0; i < num; ++i)
+    {
+        if (isIpv4(a[i])) { //ipv4
+            rr->NAME = htons(0xc00c); //todo
+            rr->TYPE = htons(0x0001);
+            rr->CLASS = htons(0x0001);
+            rr->TTL = htonl(0x3c);
+            rr->RDLENGTH = htons(4);
+            inet_pton(AF_INET, a[i], &rr->RDATA);
+            rr = (dnsRR*)((int)rr + 12 + 4);
+        }
+        else //ipv6
+        {
+            rr->NAME = htons(0xc00c); //todo
+            rr->TYPE = htons(0x001c);
+            rr->CLASS = htons(0x0001);
+            rr->TTL = htonl(0x3c);
+            rr->RDLENGTH = htons(16);
+            inet_pton(AF_INET6, a[i], &rr->RDATA);
+            rr = (dnsRR*)((int)rr + 12 + 16);
+        }
+        
+    }
+
+    return (int)rr - (int)hdr;
+}
+
 void printBuf(char* buf, const int conSize)
 {
     if (infoLevel >= 2) //报文原始内容 -dd
     {
-        for (int i = 0; i < conSize; ++i) printf("%2.2x ", (unsigned char)buf[i]);
+        for (int i = 0; i < conSize; ++i) {
+            printf("%2.2x ", (unsigned char)buf[i]);
+            if (i % 16 == 15) printf("\n");
+        }
         printf("\n");
     }
 
@@ -159,6 +225,11 @@ int main(int argc, char* argv[])
 
     char buf[BUF_SIZE];
     memset(buf, 0, BUF_SIZE);
+
+    const char* addr[] = { "144.144.144.144","2001:da8:215:4038::161" };
+    int s = construct(buf, 12, addr, 2);
+    printBuf(buf, s);
+
 
     while (true)
     {
