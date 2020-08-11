@@ -70,7 +70,7 @@ int construct(char* buf, int size, const char* a[], uint16_t num)
     for (int i = 0; i < num; ++i)
     {
         if (isIpv4(a[i])) { //ipv4
-            rr->NAME = htons(0xc00c); //todo
+            rr->NAME = htons(0xc00c);
             rr->TYPE = htons(0x0001);
             rr->CLASS = htons(0x0001);
             rr->TTL = htonl(0x3c);
@@ -80,7 +80,7 @@ int construct(char* buf, int size, const char* a[], uint16_t num)
         }
         else //ipv6
         {
-            rr->NAME = htons(0xc00c); //todo
+            rr->NAME = htons(0xc00c);
             rr->TYPE = htons(0x001c);
             rr->CLASS = htons(0x0001);
             rr->TTL = htonl(0x3c);
@@ -88,7 +88,6 @@ int construct(char* buf, int size, const char* a[], uint16_t num)
             inet_pton(AF_INET6, a[i], &rr->RDATA);
             rr = (dnsRR*)((int)rr + 12 + 16);
         }
-        
     }
 
     return (int)rr - (int)hdr;
