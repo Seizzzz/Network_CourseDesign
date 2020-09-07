@@ -3,7 +3,7 @@
 #include <ws2tcpip.h> 
 #include "AVL.h"
 #pragma comment(lib, "ws2_32.lib")
-#pragma pack(1)
+#pragma pack(1) //阻止字节对齐
 
 typedef unsigned short uint16_t;
 typedef short int16_t;
@@ -12,11 +12,11 @@ typedef unsigned int uint32_t;
 typedef unsigned char uint8_t;
 
 const int BUF_SIZE = 512;
-char addrDNS[20] = "114.114.114.114";
+char addrDNS[MAX_LENGTH_ADDR] = "114.114.114.114";
 char addrFile[50];
 int infoLevel = 0;
 
-struct dnsHeader //DNS消息头部结构
+struct dnsHeader //DNS头
 {
     uint16_t ID;
     uint16_t TAG;
@@ -28,13 +28,13 @@ struct dnsHeader //DNS消息头部结构
         uint16_t RA : 1;
         uint16_t Z : 3;
         uint16_t RCODE : 4;*/
-    uint16_t QDCOUNT;
-    uint16_t ANCOUNT;
-    uint16_t NSCOUNT;
-    uint16_t ARCOUNT;
+    uint16_t QDCOUNT; //问题数
+    uint16_t ANCOUNT; //回答数
+    uint16_t NSCOUNT; //授权数
+    uint16_t ARCOUNT; //附加记录数
 };
 
-struct dnsRR
+struct dnsRR //资源记录
 {
     uint16_t NAME;
     uint16_t TYPE;
@@ -43,9 +43,6 @@ struct dnsRR
     uint16_t RDLENGTH;
     uint32_t RDATA; //后可变长
 };
-
-//0x8183 No such name
-//0x8180 No error
 /*
     const char* a[] = { "china","germany","america" };
     construct(0x0, 0, a, 3);
@@ -53,7 +50,7 @@ struct dnsRR
 
 int isIpv4(const char* a)
 {
-    if (strchr(a, ':') == NULL) return 1;
+    if (strchr(a, ':') == NULL) return 1; //若包含':'则为IPv6地址
     return 0;
 }
 
@@ -61,52 +58,52 @@ int build(char* buf, int size, const char* a[], uint16_t num)
 {
     dnsHeader* hdr = (dnsHeader*)buf;
     if (strcmp(a[0], "0.0.0.0") == 0 || num == 0 || a[0] == NULL) { //拦截
-        hdr->TAG = htons(0x8183);
+        hdr->TAG = htons(0x8183); //0x8183 No such name
         return size;
     }
     
     dnsRR* rr = (dnsRR*)(buf + size);
     hdr->ANCOUNT = htons(num);
-    hdr->TAG = htons(0x8180);
+    hdr->TAG = htons(0x8180); //0x8180 No error
     for (int i = 0; i < num; ++i)
     {
         if (isIpv4(a[i])) { //ipv4
-            rr->NAME = htons(0xc00c);
-            rr->TYPE = htons(0x0001);
-            rr->CLASS = htons(0x0001);
-            rr->TTL = htonl(0x3c);
-            rr->RDLENGTH = htons(4);
+            rr->NAME = htons(0xc00c); //CNAME
+            rr->TYPE = htons(0x0001); //A记录(ipv4)
+            rr->CLASS = htons(0x0001); //IN(Internet类别)
+            rr->TTL = htonl(0x3c); 
+            rr->RDLENGTH = htons(4); //rdata长度
             inet_pton(AF_INET, a[i], &rr->RDATA);
-            rr = (dnsRR*)((int)rr + 12 + 4);
+            rr = (dnsRR*)((int)rr + 12 + 4); //rr指针 + rr长度 + ipv4长度 = 下一个rr的起始位置
         }
         else //ipv6
         {
             rr->NAME = htons(0xc00c);
-            rr->TYPE = htons(0x001c);
+            rr->TYPE = htons(0x001c); //AAAA记录(ipv6)
             rr->CLASS = htons(0x0001);
             rr->TTL = htonl(0x3c);
             rr->RDLENGTH = htons(16);
             inet_pton(AF_INET6, a[i], &rr->RDATA);
-            rr = (dnsRR*)((int)rr + 12 + 16);
+            rr = (dnsRR*)((int)rr + 12 + 16); //rr指针 + rr长度 + ipv6长度 = 下一个rr的起始位置
         }
     }
 
     return (int)rr - (int)hdr;
 }
 
-void toDomain(char* src, char* dst)
+void toDomain(char* src, char* dst) //将长度+字符形式转换为通常域名格式
 {
     char* ptr = src + sizeof(dnsHeader);
     do
     {
-        int cnt = *ptr;
+        int cnt = *ptr; //字符数
         if (cnt == 0) break;
-        for (; cnt > 0; --cnt) dst += sprintf(dst, "%c", *(++ptr));
+        for (; cnt > 0; --cnt) dst += sprintf(dst, "%c", *(++ptr)); //写字符
         dst += sprintf(dst, ".");
         ++ptr;
     } while (true);
     
-    --dst;
+    --dst; //格式化，去除最后的'.'
     *dst = '\0';
 }
 
@@ -143,7 +140,7 @@ int requestDNS(char* buf, int recvSize)
 
     SOCKADDR_IN addrCli;
     int addrCliSize = sizeof(addrCli);
-    addrCli.sin_addr.s_addr = inet_addr(addrDNS);
+    addrCli.sin_addr.s_addr = inet_addr(addrDNS); //向默认DNS服务器查询
     addrCli.sin_family = AF_INET;
     addrCli.sin_port = htons(53);
     bind(sockCli, (SOCKADDR*)&addrCli, sizeof(SOCKADDR));
@@ -166,7 +163,7 @@ int requestDNS(char* buf, int recvSize)
 
 void getRequest(char* buf)
 {
-    int recvSize;
+    int recvSize; //缓冲区有效信息大小
 
     SOCKET sockSrv = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockSrv < 0) {
@@ -176,7 +173,7 @@ void getRequest(char* buf)
 
     SOCKADDR_IN addrSrv;
     int addrSrvSize = sizeof(addrSrv);
-    addrSrv.sin_addr.s_addr = INADDR_ANY;
+    addrSrv.sin_addr.s_addr = INADDR_ANY; //接收所有端口的请求信息
     addrSrv.sin_family = AF_INET;
     addrSrv.sin_port = htons(53);
     bind(sockSrv, (SOCKADDR*)&addrSrv, sizeof(SOCKADDR));
@@ -189,15 +186,16 @@ void getRequest(char* buf)
     printBuf(buf, recvSize);
 
     //查询
-    char* domain = (char*)malloc(100);
+    char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
     toDomain(buf, domain);
-    const char* res[] = { search(domain) };
-    if (search(domain) != NULL)
+    const char* ret = search(domain);
+    const char* res[] = { ret };
+    if (ret != NULL) //从配置文件中查询到，构造响应报文
     {
         printf("Found record in file!\n");
         recvSize = build(buf, recvSize, res, 1);
     }
-    else
+    else //从默认DNS服务器获取
     {
         printf("Requesting DNS server!\n");
         recvSize = requestDNS(buf, recvSize);
@@ -214,18 +212,9 @@ void getRequest(char* buf)
 
 int main(int argc, char* argv[])
 {
-    loadConfig();
-    char* test = (char*)malloc(100);
-    //while (true)
-    //{
-    //    scanf("%s", test);
-    //    char* res = search(test);
-    //    if (res != NULL) printf("%s\n", res);
-    //    else printf("NOT FOUND!\n", res);
-    //}
-    //free(test);
+    loadConfig(); //从文件加载配置
 
-    if (argc > 1)
+    if (argc > 1) //处理运行参数
     {
         strcpy(addrFile, argv[0]);
         infoLevel = 0;
@@ -246,25 +235,20 @@ int main(int argc, char* argv[])
         }
     }
 
-    ///////////////////////////////////////////////
-
-    WSADATA wsaData;
+    WSADATA wsaData; //加载Winsock库
     if (WSAStartup(MAKEWORD(1, 1), &wsaData) != 0) {
         printf("WSAStartup Failed!\n");
         return -1;
     }
 
-    ///////////////////////////////////////////////
-
-    char buf[BUF_SIZE];
+    char buf[BUF_SIZE]; //缓冲区
     memset(buf, 0, BUF_SIZE);
 
-    while (true)
+    while (1) //循环接受请求报文
     {
         getRequest(buf);
     }
 
-    ///////////////////////////////////////////////
-
-    WSACleanup();
+    WSACleanup(); //释放Winsock库
+    release(); //释放树
 }
