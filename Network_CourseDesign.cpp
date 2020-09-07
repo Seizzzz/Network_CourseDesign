@@ -1,6 +1,7 @@
 ﻿#include <stdio.h>
 #include <WinSock2.h>
 #include <ws2tcpip.h> 
+#include "AVL.h"
 #pragma comment(lib, "ws2_32.lib")
 #pragma pack(1)
 
@@ -56,10 +57,10 @@ int isIpv4(const char* a)
     return 0;
 }
 
-int construct(char* buf, int size, const char* a[], uint16_t num)
+int build(char* buf, int size, const char* a[], uint16_t num)
 {
     dnsHeader* hdr = (dnsHeader*)buf;
-    if (num == 0 || a[0] == "0.0.0.0") { //拦截
+    if (strcmp(a[0], "0.0.0.0") == 0 || num == 0 || a[0] == NULL) { //拦截
         hdr->TAG = htons(0x8183);
         return size;
     }
@@ -93,6 +94,22 @@ int construct(char* buf, int size, const char* a[], uint16_t num)
     return (int)rr - (int)hdr;
 }
 
+void toDomain(char* src, char* dst)
+{
+    char* ptr = src + sizeof(dnsHeader);
+    do
+    {
+        int cnt = *ptr;
+        if (cnt == 0) break;
+        for (; cnt > 0; --cnt) dst += sprintf(dst, "%c", *(++ptr));
+        dst += sprintf(dst, ".");
+        ++ptr;
+    } while (true);
+    
+    --dst;
+    *dst = '\0';
+}
+
 void printBuf(char* buf, const int conSize)
 {
     if (infoLevel >= 2) //报文原始内容 -dd
@@ -107,17 +124,10 @@ void printBuf(char* buf, const int conSize)
     //报文翻译内容 -d
     if (infoLevel >= 1)
     {
-        char* ptr = buf + sizeof(dnsHeader);
-        do
-        {
-            int cnt = *ptr;
-            if (cnt == 0) break;
-            for (; cnt > 0; --cnt) printf("%c", *(++ptr));
-            printf(".");
-            ++ptr;
-
-        } while (true);
-        printf("\n");
+        char* domain = (char*)malloc(100);
+        toDomain(buf, domain);
+        printf("%s\n", domain);
+        free(domain);
     }
 
     return;
@@ -179,7 +189,20 @@ void getRequest(char* buf)
     printBuf(buf, recvSize);
 
     //查询
-    recvSize = requestDNS(buf, recvSize);
+    char* domain = (char*)malloc(100);
+    toDomain(buf, domain);
+    const char* res[] = { search(domain) };
+    if (search(domain) != NULL)
+    {
+        printf("Found record in file!\n");
+        recvSize = build(buf, recvSize, res, 1);
+    }
+    else
+    {
+        printf("Requesting DNS server!\n");
+        recvSize = requestDNS(buf, recvSize);
+    }
+    free(domain);
 
     //回复响应报文
     printf("Relay Response to %s:%d\n", inet_ntoa(addrSrv.sin_addr), ntohs(addrSrv.sin_port));
@@ -191,6 +214,17 @@ void getRequest(char* buf)
 
 int main(int argc, char* argv[])
 {
+    loadConfig();
+    char* test = (char*)malloc(100);
+    //while (true)
+    //{
+    //    scanf("%s", test);
+    //    char* res = search(test);
+    //    if (res != NULL) printf("%s\n", res);
+    //    else printf("NOT FOUND!\n", res);
+    //}
+    //free(test);
+
     if (argc > 1)
     {
         strcpy(addrFile, argv[0]);
@@ -224,11 +258,6 @@ int main(int argc, char* argv[])
 
     char buf[BUF_SIZE];
     memset(buf, 0, BUF_SIZE);
-
-    const char* addr[] = { "144.144.144.144","2001:da8:215:4038::161" };
-    int s = construct(buf, 12, addr, 2);
-    printBuf(buf, s);
-
 
     while (true)
     {
