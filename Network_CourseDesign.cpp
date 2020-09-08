@@ -228,7 +228,7 @@ int main(int argc, char* argv[])
 {
     if (argc > 1) //处理运行参数
     {
-        strcpy(addrFile, "dnsrelay.txt");
+        strcpy(addrFile, "./dnsrelay.txt");
         infoLevel = 0;
         for (int i = 1; i < argc; ++i)
         {
