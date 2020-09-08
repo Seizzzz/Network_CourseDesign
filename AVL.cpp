@@ -157,7 +157,7 @@ void insert(node* now, char *domain,char *addr_ip) { //平衡二叉树的插入运算
         while (p) {
             parent = p;//记录父亲节点
             if (strcmp(p->domain,domain) == 0) {
-                printf("fault :%s\n", p->domain);
+                printf("Duplicate Record!(%s)\n", p->domain);
                 return;
             }
             else if (strcmp(p->domain, domain) > 0) {
@@ -204,15 +204,18 @@ void loadConfig(const char* file)
     if (fp == NULL) //打开失败
     {
         printf("Failed to load config file!\n");
-        exit(-1);
+        return;
     }
 
+    int cnt = 0;
     while (fscanf(fp, "%s", addr_ip) != EOF)
     {
         fscanf(fp, "%s", domain);
         insert(T, domain, addr_ip);
+        ++cnt;
         while (T->parent != NULL) T = T->parent;
     }
+    printf("Loaded config file!(%d Records)\n", cnt);
 
     fclose(fp);
 }

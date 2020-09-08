@@ -9,6 +9,4 @@ C:\Users\SLRYZD\Desktop\Github\Network_CourseDesign\Network_CourseDesign\Network
 C:\Users\SLRYZD\Desktop\Github\Network_CourseDesign\Network_CourseDesign\Network_CourseDesign.cpp(231,9): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
 C:\Users\SLRYZD\Desktop\Github\Network_CourseDesign\Network_CourseDesign\Network_CourseDesign.cpp(245,43): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
 C:\Users\SLRYZD\Desktop\Github\Network_CourseDesign\Network_CourseDesign\Network_CourseDesign.cpp(246,18): warning C4996: 'strcpy': This function or variable may be unsafe. Consider using strcpy_s instead. To disable deprecation, use _CRT_SECURE_NO_WARNINGS. See online help for details.
-  transid.cpp
-  正在生成代码...
   Network_CourseDesign.vcxproj -> C:\Users\SLRYZD\Desktop\Github\Network_CourseDesign\Network_CourseDesign\Debug\Network_CourseDesign.exe

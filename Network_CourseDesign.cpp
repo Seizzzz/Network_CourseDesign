@@ -122,7 +122,7 @@ void printBuf(char* buf, const int conSize)
     //报文翻译内容 -d
     if (infoLevel >= 1)
     {
-        printf("Domain request: ");
+        printf("Domain: ");
         char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
         toDomain(buf, domain);
         printf("%s\n", domain);
