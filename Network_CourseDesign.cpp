@@ -266,4 +266,5 @@ int main(int argc, char* argv[])
 
     WSACleanup(); //释放Winsock库
     release(); //释放树
+    releaseID(); //释放ID转换
 }

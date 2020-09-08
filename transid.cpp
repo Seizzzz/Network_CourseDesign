@@ -57,3 +57,16 @@ int loadID(int id)
 
 	return ret;
 }
+
+void releaseID()
+{
+	nodeID* p = hdr;
+	nodeID* np = hdr->next;
+
+	while (np != NULL)
+	{
+		free(p);
+		p = np;
+		np = np->next;
+	}
+}
