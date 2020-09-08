@@ -2,6 +2,7 @@
 #include <WinSock2.h>
 #include <ws2tcpip.h> 
 #include "AVL.h"
+#include "transid.h"
 #pragma comment(lib, "ws2_32.lib")
 #pragma pack(1) //阻止字节对齐
 
@@ -121,7 +122,8 @@ void printBuf(char* buf, const int conSize)
     //报文翻译内容 -d
     if (infoLevel >= 1)
     {
-        char* domain = (char*)malloc(100);
+        printf("Domain request: ");
+        char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
         toDomain(buf, domain);
         printf("%s\n", domain);
         free(domain);
@@ -185,6 +187,12 @@ void getRequest(char* buf)
     }
     printBuf(buf, recvSize);
 
+    //ID旧转新
+    int oldID = ((dnsHeader*)buf)->ID;
+    int newID = saveID(oldID);
+    ((dnsHeader*)buf)->ID = newID; //存储旧ID
+    if (infoLevel >= 2) printf("(ID:%d->%d)\n", oldID, newID);
+
     //查询
     char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
     toDomain(buf, domain);
@@ -192,15 +200,21 @@ void getRequest(char* buf)
     const char* res[] = { ret };
     if (ret != NULL) //从配置文件中查询到，构造响应报文
     {
-        printf("Found record in file!\n");
+        if (infoLevel >= 2) printf("Found record in file!\n");
         recvSize = build(buf, recvSize, res, 1);
     }
     else //从默认DNS服务器获取
     {
-        printf("Requesting DNS server!\n");
+        if (infoLevel >= 2) printf("Requesting DNS server!\n");
         recvSize = requestDNS(buf, recvSize);
     }
     free(domain);
+
+    //ID新转旧
+    newID = ((dnsHeader*)buf)->ID;
+    oldID = loadID(((dnsHeader*)buf)->ID);
+    ((dnsHeader*)buf)->ID = oldID; //取回旧ID
+    if (infoLevel >= 2) printf("(ID:%d->%d)\n", newID, oldID);
 
     //回复响应报文
     printf("Relay Response to %s:%d\n", inet_ntoa(addrSrv.sin_addr), ntohs(addrSrv.sin_port));
@@ -212,11 +226,9 @@ void getRequest(char* buf)
 
 int main(int argc, char* argv[])
 {
-    loadConfig(); //从文件加载配置
-
     if (argc > 1) //处理运行参数
     {
-        strcpy(addrFile, argv[0]);
+        strcpy(addrFile, "dnsrelay.txt");
         infoLevel = 0;
         for (int i = 1; i < argc; ++i)
         {
@@ -231,9 +243,12 @@ int main(int argc, char* argv[])
                 }
             }
             else if (isdigit(argv[i][0])) strcpy(addrDNS, argv[i]);
-            else if (isalpha(argv[i][0])) strcpy(addrFile, argv[i]);
+            else strcpy(addrFile, argv[i]);
         }
     }
+
+    loadConfig(addrFile); //从文件加载配置
+    initTrans(); //初始化ID转换
 
     WSADATA wsaData; //加载Winsock库
     if (WSAStartup(MAKEWORD(1, 1), &wsaData) != 0) {

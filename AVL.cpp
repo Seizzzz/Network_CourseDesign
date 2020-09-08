@@ -1,6 +1,6 @@
 #include "AVL.h"
 
-nodeptr T = NULL;
+node* T = NULL;
 
 void rotateRight(node* parent, node* T) {
     node* x = parent->parent;//记录父亲节点
@@ -71,7 +71,7 @@ void rotateRL(node* parent, node* T) {
     rotateLeft(parent, T);
 }
 
-int height(nodeptr T) {
+int height(node* T) {
     int n, m;
     if (T == NULL) {
         return 0;
@@ -86,7 +86,7 @@ int height(nodeptr T) {
     }
 }
 
-void rebalance(nodeptr T) {
+void rebalance(node* T) {
     if (T == NULL) {
         return;
     }
@@ -195,12 +195,18 @@ node* findIPaddr(node* T, char *domain)
     return NULL;
 }
 
-void loadConfig()
+void loadConfig(const char* file)
 {
     char domain[MAX_LENGTH_DOMAIN];
     char addr_ip[MAX_LENGTH_ADDR];
 
-    FILE* fp = fopen("dnsrelay.txt", "r");
+    FILE* fp = fopen(file, "r");
+    if (fp == NULL) //打开失败
+    {
+        printf("Failed to load config file!\n");
+        exit(-1);
+    }
+
     while (fscanf(fp, "%s", addr_ip) != EOF)
     {
         fscanf(fp, "%s", domain);
@@ -208,7 +214,7 @@ void loadConfig()
         while (T->parent != NULL) T = T->parent;
     }
 
-    //printf("fuck");
+    fclose(fp);
 }
 
 char* search(char* domain)

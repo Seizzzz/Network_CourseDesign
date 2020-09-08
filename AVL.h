@@ -12,9 +12,9 @@ typedef struct T {
     int bal;//平衡因子
     char domain[MAX_LENGTH_DOMAIN];
     char addr_ip[MAX_LENGTH_ADDR];
-    struct T* lchild, * rchild, * parent;//左孩子、右孩子、父亲节点
-}*nodeptr, node;
+    struct T* lchild, *rchild, *parent;//左孩子、右孩子、父亲节点
+} node;
 
-void loadConfig();
+void loadConfig(const char* file);
 char* search(char*);
 void release();
