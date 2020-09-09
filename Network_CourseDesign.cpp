@@ -226,9 +226,9 @@ void getRequest(char* buf)
 
 int main(int argc, char* argv[])
 {
+    strcpy(addrFile, "./dnsrelay.txt");
     if (argc > 1) //处理运行参数
     {
-        strcpy(addrFile, "./dnsrelay.txt");
         infoLevel = 0;
         for (int i = 1; i < argc; ++i)
         {

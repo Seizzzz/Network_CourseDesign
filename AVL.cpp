@@ -199,6 +199,8 @@ void loadConfig(const char* file)
 {
     char domain[MAX_LENGTH_DOMAIN];
     char addr_ip[MAX_LENGTH_ADDR];
+    
+    printf("Try to load config file from: %s\n", file);
 
     FILE* fp = fopen(file, "r");
     if (fp == NULL) //´ò¿ªÊ§°Ü
