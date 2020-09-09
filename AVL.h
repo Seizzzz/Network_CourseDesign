@@ -1,10 +1,11 @@
 #pragma once
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<string.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include "debuginfo.h"
 
-const int MAX_LENGTH_DOMAIN = 100; //域名最大字节长度
+const int MAX_LENGTH_DOMAIN = 300; //域名最大字节长度
 const int MAX_LENGTH_ADDR = 50; //地址最大字节长度
 
 typedef struct T {

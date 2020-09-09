@@ -3,6 +3,7 @@
 #include <ws2tcpip.h> 
 #include "AVL.h"
 #include "transid.h"
+#include "debuginfo.h"
 #pragma comment(lib, "ws2_32.lib")
 #pragma pack(1) //阻止字节对齐
 
@@ -15,7 +16,8 @@ typedef unsigned char uint8_t;
 const int BUF_SIZE = 512;
 char addrDNS[MAX_LENGTH_ADDR] = "114.114.114.114";
 char addrFile[50];
-int infoLevel = 0;
+
+extern int infoLevel;
 
 struct dnsHeader //DNS头
 {
@@ -109,7 +111,16 @@ void toDomain(char* src, char* dst) //将长度+字符形式转换为通常域�
 }
 
 void printBuf(char* buf, const int conSize)
-{
+{   
+    if (infoLevel >= 1) //报文翻译内容 -d
+    {
+        printf("\t\t\tDomain: ");
+        char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
+        toDomain(buf, domain);
+        printf("%s\n", domain);
+        free(domain);
+    }
+
     if (infoLevel >= 2) //报文原始内容 -dd
     {
         for (int i = 0; i < conSize; ++i) {
@@ -119,16 +130,6 @@ void printBuf(char* buf, const int conSize)
         printf("\n");
     }
 
-    //报文翻译内容 -d
-    if (infoLevel >= 1)
-    {
-        printf("Domain: ");
-        char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
-        toDomain(buf, domain);
-        printf("%s\n", domain);
-        free(domain);
-    }
-
     return;
 }
 
@@ -136,7 +137,7 @@ int requestDNS(char* buf, int recvSize)
 {
     SOCKET sockCli = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockCli < 0) {
-        printf("Creating Sock(requestDNS) Failed!\n");
+        debugInfo(0, "Creating Sock(requestDNS) Failed!\n");
         exit(-1);
     }
 
@@ -148,14 +149,14 @@ int requestDNS(char* buf, int recvSize)
     bind(sockCli, (SOCKADDR*)&addrCli, sizeof(SOCKADDR));
 
     //转发请求报文
-    printf("Relay Request to %s:%d\n", inet_ntoa(addrCli.sin_addr), ntohs(addrCli.sin_port));
+    debugInfo(1, "Relay Request to %s:%d\n", inet_ntoa(addrCli.sin_addr), ntohs(addrCli.sin_port));
     sendto(sockCli, buf, recvSize, 0, (SOCKADDR*)&addrCli, sizeof(addrCli));
 
     //接收响应报文
     recvSize = recvfrom(sockCli, buf, BUF_SIZE, 0, (SOCKADDR*)&addrCli, &addrCliSize);
 
     if (sockCli != INVALID_SOCKET) {
-        printf("Recv Response from %s:%d\n", inet_ntoa(addrCli.sin_addr), ntohs(addrCli.sin_port));
+        debugInfo(1, "Recv Response from %s:%d\n", inet_ntoa(addrCli.sin_addr), ntohs(addrCli.sin_port));
     }
     printBuf(buf, recvSize);
 
@@ -169,7 +170,7 @@ void getRequest(char* buf)
 
     SOCKET sockSrv = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockSrv < 0) {
-        printf("Creating Socket(getRequest) Failed!\n");
+        debugInfo(0, "Creating Socket(getRequest) Failed!\n");
         exit(-1);
     }
 
@@ -183,7 +184,7 @@ void getRequest(char* buf)
     //接收请求报文
     recvSize = recvfrom(sockSrv, buf, BUF_SIZE, 0, (SOCKADDR*)&addrSrv, &addrSrvSize);
     if (sockSrv != INVALID_SOCKET) {
-        printf("Recv Request from %s:%d\n", inet_ntoa(addrSrv.sin_addr), ntohs(addrSrv.sin_port));
+        debugInfo(1, "Recv Request from %s:%d\n", inet_ntoa(addrSrv.sin_addr), ntohs(addrSrv.sin_port));
     }
     printBuf(buf, recvSize);
 
@@ -191,7 +192,7 @@ void getRequest(char* buf)
     int oldID = ((dnsHeader*)buf)->ID;
     int newID = saveID(oldID);
     ((dnsHeader*)buf)->ID = newID; //存储旧ID
-    if (infoLevel >= 2) printf("(ID:%d->%d)\n", oldID, newID);
+    debugInfo(2, "(ID:%d->%d)\n", oldID, newID);
 
     //查询
     char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
@@ -200,12 +201,12 @@ void getRequest(char* buf)
     const char* res[] = { ret };
     if (ret != NULL) //从配置文件中查询到，构造响应报文
     {
-        if (infoLevel >= 2) printf("Found record in file!\n");
+        debugInfo(2, "Found record in file!\n");
         recvSize = build(buf, recvSize, res, 1);
     }
     else //从默认DNS服务器获取
     {
-        if (infoLevel >= 2) printf("Requesting DNS server!\n");
+        debugInfo(2, "Requesting DNS server!\n");
         recvSize = requestDNS(buf, recvSize);
     }
     free(domain);
@@ -214,10 +215,10 @@ void getRequest(char* buf)
     newID = ((dnsHeader*)buf)->ID;
     oldID = loadID(((dnsHeader*)buf)->ID);
     ((dnsHeader*)buf)->ID = oldID; //取回旧ID
-    if (infoLevel >= 2) printf("(ID:%d->%d)\n", newID, oldID);
+    debugInfo(2, "(ID:%d->%d)\n", newID, oldID);
 
     //回复响应报文
-    printf("Relay Response to %s:%d\n", inet_ntoa(addrSrv.sin_addr), ntohs(addrSrv.sin_port));
+    debugInfo(1, "Relay Response to %s:%d\n", inet_ntoa(addrSrv.sin_addr), ntohs(addrSrv.sin_port));
     sendto(sockSrv, buf, recvSize, 0, (SOCKADDR*)&addrSrv, sizeof(addrSrv));
 
     closesocket(sockSrv);
@@ -238,7 +239,7 @@ int main(int argc, char* argv[])
                 else if (strcmp(argv[i], "-dd") == 0) infoLevel = 2;
                 else
                 {
-                    printf("Unknown Command!\n");
+                    debugInfo(0, "Unknown Command!\n");
                     exit(-1);
                 }
             }
@@ -252,9 +253,11 @@ int main(int argc, char* argv[])
 
     WSADATA wsaData; //加载Winsock库
     if (WSAStartup(MAKEWORD(1, 1), &wsaData) != 0) {
-        printf("WSAStartup Failed!\n");
+        debugInfo(0, "WSAStartup Failed!\n");
         return -1;
     }
+
+    debugInfo(0, "Server running!\n");
 
     char buf[BUF_SIZE]; //缓冲区
     memset(buf, 0, BUF_SIZE);

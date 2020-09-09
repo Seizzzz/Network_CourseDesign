@@ -91,7 +91,6 @@ void rebalance(node* T) {
         return;
     }
     T->bal = height(T->rchild) - height(T->lchild);//此处是右树高度减左树高度,在重新平衡的判定中起到作用
-    //printf("%d %d\n",T->data,T->bal);
     rebalance(T->rchild);
     rebalance(T->lchild);
 }
@@ -157,7 +156,7 @@ void insert(node* now, char *domain,char *addr_ip) { //平衡二叉树的插入运算
         while (p) {
             parent = p;//记录父亲节点
             if (strcmp(p->domain,domain) == 0) {
-                printf("Duplicate Record!(%s)\n", p->domain);
+                debugInfo(2, "Duplicate Record!(%s)\n", p->domain);
                 return;
             }
             else if (strcmp(p->domain, domain) > 0) {
@@ -200,12 +199,12 @@ void loadConfig(const char* file)
     char domain[MAX_LENGTH_DOMAIN];
     char addr_ip[MAX_LENGTH_ADDR];
     
-    printf("Try to load config file from: %s\n", file);
+    debugInfo(1, "Try to load config file from: %s\n", file);
 
     FILE* fp = fopen(file, "r");
     if (fp == NULL) //打开失败
     {
-        printf("Failed to load config file!\n");
+        debugInfo(1, "Failed to load config file!\n");
         return;
     }
 
@@ -217,7 +216,7 @@ void loadConfig(const char* file)
         ++cnt;
         while (T->parent != NULL) T = T->parent;
     }
-    printf("Loaded config file!(%d Records)\n", cnt);
+    debugInfo(1, "Loaded config file!(%d Records)\n", cnt);
 
     fclose(fp);
 }

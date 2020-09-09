@@ -24,12 +24,18 @@
     <ClCompile Include="transid.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="debuginfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AVL.h">
       <Filter>头文件</Filter>
     </ClInclude>
     <ClInclude Include="transid.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="debuginfo.h">
       <Filter>头文件</Filter>
     </ClInclude>
   </ItemGroup>
