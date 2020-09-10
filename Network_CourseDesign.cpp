@@ -154,7 +154,7 @@ int requestDNS(char* buf, int recvSize)
 
     //接收响应报文
     recvSize = recvfrom(sockCli, buf, BUF_SIZE, 0, (SOCKADDR*)&addrCli, &addrCliSize);
-
+    
     if (sockCli != INVALID_SOCKET) {
         debugInfo(1, "Recv Response from %s:%d\n", inet_ntoa(addrCli.sin_addr), ntohs(addrCli.sin_port));
     }
@@ -195,27 +195,36 @@ void getRequest(char* buf)
     debugInfo(2, "(ID:%d->%d)\n", oldID, newID);
 
     //查询
-    char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
-    toDomain(buf, domain);
-    const char* ret = search(domain);
-    const char* res[] = { ret };
-    if (ret != NULL) //从配置文件中查询到，构造响应报文
+    short questipv4 = *((short*)(buf + recvSize) - 2); //判断查询是否是ipv4
+    if (questipv4 == 0x100) printf("isipv4\n");
+    else printf("isipv6\n");
+
+    if (questipv4 == 0x100) //如果请求的是ipv4
     {
-        debugInfo(2, "Found record in file!\n");
-        recvSize = build(buf, recvSize, res, 1);
+        char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
+        toDomain(buf, domain);
+        const char* ret = search(domain);
+        const char* res[] = { ret };
+        free(domain);
+        if (ret != NULL) //从配置文件中查询到，构造响应报文
+        {
+            debugInfo(2, "Found record in file!\n");
+            recvSize = build(buf, recvSize, res, 1);
+        }
     }
     else //从默认DNS服务器获取
     {
         debugInfo(2, "Requesting DNS server!\n");
         recvSize = requestDNS(buf, recvSize);
     }
-    free(domain);
+    
 
     //ID新转旧
     newID = ((dnsHeader*)buf)->ID;
     oldID = loadID(((dnsHeader*)buf)->ID);
     ((dnsHeader*)buf)->ID = oldID; //取回旧ID
     debugInfo(2, "(ID:%d->%d)\n", newID, oldID);
+    //
 
     //回复响应报文
     debugInfo(1, "Relay Response to %s:%d\n", inet_ntoa(addrSrv.sin_addr), ntohs(addrSrv.sin_port));
