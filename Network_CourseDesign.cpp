@@ -196,19 +196,23 @@ void getRequest(char* buf)
 
     //查询
     short questipv4 = *((short*)(buf + recvSize) - 2); //判断查询是否是ipv4
-    if (questipv4 == 0x100) printf("isipv4\n");
-    else printf("isipv6\n");
 
-    if (questipv4 == 0x100) //如果请求的是ipv4
+    char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
+    toDomain(buf, domain);
+    const char* ret = search(domain);
+    const char* res[] = { ret };
+    free(domain);
+
+    if(ret != NULL) //查询到文件有记录
     {
-        char* domain = (char*)malloc(MAX_LENGTH_DOMAIN);
-        toDomain(buf, domain);
-        const char* ret = search(domain);
-        const char* res[] = { ret };
-        free(domain);
-        if (ret != NULL) //从配置文件中查询到，构造响应报文
+        if (questipv4 == 0x100 && isIpv4(res[0])) //如果请求的是ipv4 且查询到的是ipv4
         {
-            debugInfo(2, "Found record in file!\n");
+            debugInfo(2, "Found IPv4 record in file!\n");
+            recvSize = build(buf, recvSize, res, 1);
+        }
+        else if(questipv4 == 0x1c00 && !isIpv4(res[0])) //请求的是ipv6
+        {
+            debugInfo(2, "Found IPv6 record in file!\n");
             recvSize = build(buf, recvSize, res, 1);
         }
     }
